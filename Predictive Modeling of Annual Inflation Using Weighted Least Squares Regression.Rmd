@@ -1,0 +1,170 @@
+---
+title: "Predictive Modeling of Annual Inflation Using Weighted Least Squares Regression"
+author: "Annisa Indriani"
+date: "2024-10-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Library
+
+```{r}
+library(readxl)
+library(lmtest)
+library(nortest)
+library(car)
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+library(performance)
+library(gamlr)
+```
+
+## Import Data
+
+```{r}
+gdp = read_excel("Dataset Kesejahteraan Sosial dan Ekonomi Negara Asia 2022.xlsx",
+                 sheet = 2)
+gdp
+```
+
+## Exploratory Data Analysis
+
+### Check Data Structure
+
+```{r}
+str(gdp)
+```
+
+### **Check Summary**
+
+```{r}
+summary(gdp)
+```
+
+### **Check Missing Values**
+
+```{r}
+colSums(is.na(gdp))
+```
+
+### **Correlation Heatmap**
+
+```{r}
+correlation_matrix <- cor(gdp %>% select_if(is.numeric))
+
+melted_correlation <- melt(correlation_matrix)
+ggplot(data = melted_correlation, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = 'blue', high = 'red', mid = 'white', 
+                       midpoint = 0, limit = c(-1, 1), name = 'Correlation') +
+  theme_minimal() +
+  labs(title = 'Correlation Heatmap')
+```
+
+## **Linear Regression Model**
+
+```{r}
+model1 = lm(Inflation_Consumer_Prices_Annual ~ 
+              Households_Consumption_Expenditure_Annual_Growth +
+              Age_Dependency_Ratio +
+              Inflation_GDP, data = gdp)
+summary(model1)
+```
+
+From the summary above, we can see that the model is significant because the p-value is less than alpha 0.05. In addition, the variables also have p-values below 0.05, indicating a relationship between Households Consumption Expenditure Annual Growth, Age Dependency Ratio, Inflation GDP, and Inflation Consumer Prices Annual.
+
+## **Assumptions Test**
+
+### **Independent**
+
+```{r}
+dwtest(model1)
+```
+
+The Durbin-Watson test shows that the model has a p-value of more than alpha 0.05, which indicates that the independence assumption is met.
+
+### **Identic**
+
+```{r}
+bptest(model1)
+```
+
+The Breusch Pagan test shows that the model has a p-value of less than 0.05, which indicates that the identical assumption is not met, and therefore, the model cannot be used for further analysis. Thus, a weighted least squares regression model will be used to deal with this issue.
+
+### **Normality**
+
+```{r}
+e1 <- residuals(model1)
+shapiro.test(e1)
+```
+
+The Shapiro-Wilk test shows that the model has a p-value of more than alpha 0.05, which indicates that the normality assumption is met.
+
+### **Multicollinearity**
+
+```{r}
+vif(model1)
+```
+
+A VIF value of less than 10 indicates that there is no multicollinearity between Households Consumption Expenditure, Annual Growth, and Age Dependency Ratio.
+
+## **Weighted Least Squares Regression Model**
+
+```{r}
+weight1 = 1 / lm(abs(model1$residuals) ~ model1$fitted.values)$fitted.values^2
+
+model_wls1 <- lm(Inflation_Consumer_Prices_Annual ~ 
+                   Households_Consumption_Expenditure_Annual_Growth +
+                   Age_Dependency_Ratio + Inflation_GDP, data = gdp, 
+                 weights = weight1)
+summary(model_wls1)
+```
+
+From the summary above, we can see that the model is significant as the p-value is smaller than alpha 0.05. In addition, all variables except Households Consumption Expenditure Annual Growth have a p-value below 0.05, which means there is a relationship between ram, battery, rear cam and phone price.
+
+```{r}
+model2 = lm(Inflation_Consumer_Prices_Annual ~
+              Age_Dependency_Ratio +
+              Inflation_GDP, data = gdp)
+
+weight2 = 1 / lm(abs(model2$residuals) ~ model2$fitted.values)$fitted.values^2
+
+model_wls2 <- lm(Inflation_Consumer_Prices_Annual ~ 
+                   Age_Dependency_Ratio + Inflation_GDP, data = gdp, 
+                 weights = weight2)
+summary(model_wls2)
+```
+
+From the summary above, we can see that the model is significant because the p-value is less than alpha 0.05. In addition, the variables also has a p-value below 0.05, which means there is a relationship between Age Dependency Ratio, Inflation GDP, and Inflation Consumer Prices Annual.
+
+### Breusch-Pagan Test
+
+```{r}
+bptest(model_wls2)
+```
+
+The Breusch-Pagan test shows that the model has a p-value of more than alpha 0.05, which indicates that the independence assumption is met.
+
+## **Goodness of the Model**
+
+### **AIC**
+
+```{r}
+AIC(model1)
+AIC(model_wls1)
+AIC(model_wls2)
+```
+
+### RSE
+
+```{r}
+summary(model1)$sigma
+summary(model_wls1)$sigma
+summary(model_wls2)$sigma
+```
+
+Based on the AIC and RSE values, it can be seen that the WLS model with significant variables has a smaller value than other models. Thus, the model is the best model and can be used for analysis.
