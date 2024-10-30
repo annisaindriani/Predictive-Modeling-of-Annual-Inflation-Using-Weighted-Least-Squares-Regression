@@ -1,1 +1,2 @@
+*.html linguist-language=HTML
 *.Rmd linguist-language=R
